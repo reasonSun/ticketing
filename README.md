@@ -10,7 +10,7 @@
 - MySQL 8.4 (Docker Compose)
 - 테스트 전용 H2 / JUnit
 
-기본 패키지는 `com.yuseon.ticketing`입니다.
+기본 패키지는 `com.ticketing`입니다.
 
 ## 로컬 실행
 

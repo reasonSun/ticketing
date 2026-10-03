@@ -1,4 +1,4 @@
-package com.yuseon.ticketing.reservation;
+package com.ticketing.reservation;
 
 public enum ReservationStatus {
 	CONFIRMED,

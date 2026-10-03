@@ -1,12 +1,11 @@
-package com.yuseon.ticketing.reservation;
+package com.ticketing.reservation;
 
-import com.yuseon.ticketing.concert.ConcertRepository;
-import com.yuseon.ticketing.seat.SeatRepository;
-import com.yuseon.ticketing.user.UserRepository;
+import com.ticketing.concert.ConcertRepository;
+import com.ticketing.seat.SeatRepository;
+import com.ticketing.user.UserRepository;
 
 import java.time.Clock;
 
-/** 첫 예매 성공 시나리오 구현. 중복 예매와 시간 제한 검증은 후속 단계에서 추가한다. */
 public class ReservationService {
 	private final UserRepository userRepository;
 	private final ConcertRepository concertRepository;
@@ -31,7 +30,7 @@ public class ReservationService {
 		var seat = seatRepository.findById(seatId)
 				.orElseThrow(() -> new IllegalArgumentException("좌석이 존재하지 않습니다."));
 
-		Reservation reservation = Reservation.confirm(user.id(), concert.id(), seat.id(), clock.instant());
+		Reservation reservation = Reservation.confirm(user, concert, seat, clock.instant());
 		return reservationRepository.save(reservation);
 	}
 }
