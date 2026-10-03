@@ -1,6 +1,9 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:ticketing;DB_CLOSE_DELAY=-1
-    username: sa
-    password: ""
-    driver-class-name: org.h2.Driver
+    url: jdbc:mysql://127.0.0.1:3308/ticketing_test
+    username: ticketing_test
+    password: ticketing_test_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop

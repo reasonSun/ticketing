@@ -157,5 +157,7 @@ mysql -h 127.0.0.1 -P 3307 -u 사용자이름 -p ticketing < doc/schema.sql
 
 - 첫 성공 단위 테스트를 작성하고, 예매 미구현으로 실패하는 것을 확인한 뒤 최소 구현으로 통과시켰다.
 - `User`, `Concert`, `Seat`, `Reservation`을 JPA 엔티티로 매핑하고 각 Repository를 `JpaRepository`로 연결했다. 연관관계는 단방향 지연 로딩이며 외래 키 생성은 비활성화했다. 예매 ID는 애플리케이션에서 생성한 UUID이며 예매 시각은 주입한 `Clock`으로 결정한다.
-- 서비스 단위 테스트는 Mockito Repository로 저장 호출과 사용자·공연·좌석 연결, `CONFIRMED` 상태, 예매 시각을 검증한다. Spring 컨텍스트와 DB는 사용하지 않는다.
-- DB 저장을 위한 엔티티와 Repository 매핑을 작성했으며, 실제 DB 연동 검증은 수행하지 않았다. 서비스의 Spring 빈 등록과 트랜잭션 경계, API, 좌석의 공연 소속 검증, 중복 예매·사용자별 한도·시작 시각 검증, 조회·취소는 후속 작업이다.
+- `ReservationServiceTest`를 `@SpringBootTest`와 별도 Docker MySQL 8.4를 사용하는 통합 테스트로 전환했다. 실제 Repository로 사용자·공연·좌석을 준비하고, 예매 후 flush·clear 및 재조회로 저장 건수와 연관 ID, `CONFIRMED` 상태, 예매·취소 일시를 검증하도록 작성했다. 테스트는 고정 Clock과 트랜잭션 롤백을 사용한다. 테스트 프로필에만 `ddl-auto: create-drop`을 적용한다. 테스트 DB는 `127.0.0.1:3308/ticketing_test`이며 개발 DB와 분리한다. JPA 매핑으로 테이블을 생성하므로 `doc/schema.sql` 자체를 검증하는 테스트는 아니다.
+- 서비스의 Spring 빈 등록과 예매 트랜잭션 경계, 운영용 UTC Clock 빈을 추가했다. 테스트 실행은 명시적으로 요청한 테스트 전용 Docker MySQL에 한정하며 개발 DB에는 접근하지 않는다. API, 좌석의 공연 소속 검증, 중복 예매·사용자별 한도·시작 시각 검증, 조회·취소는 후속 작업이다.
+
+- Docker MySQL 테스트 DB에서 `./gradlew test --offline`을 실행하여 예매 통합 테스트와 Spring 컨텍스트 테스트의 통과를 확인했다.

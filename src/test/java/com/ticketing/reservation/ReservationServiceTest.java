@@ -6,68 +6,94 @@ import com.ticketing.seat.Seat;
 import com.ticketing.seat.SeatRepository;
 import com.ticketing.user.User;
 import com.ticketing.user.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.util.Optional;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-import static org.mockito.AdditionalAnswers.returnsFirstArg;
 
+@SpringBootTest
+@ActiveProfiles("test")
+@Import(ReservationServiceTest.FixedClockConfiguration.class)
+@Transactional
 class ReservationServiceTest {
 
+	private static final Instant NOW = Instant.parse("2026-09-16T01:00:00Z");
+
+	@Autowired
+	private ReservationService sut;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private ConcertRepository concertRepository;
+
+	@Autowired
+	private SeatRepository seatRepository;
+
+	@Autowired
+	private ReservationRepository reservationRepository;
+
+	@Autowired
+	private EntityManager entityManager;
+
 	@Test
-	@DisplayName("등록된 사용자가 공연 시작 전에 빈 좌석을 예매하면 확정된 예매가 저장된다")
+	@DisplayName("등록된 사용자가 공연 시작 전에 빈 좌석을 예매하면 확정된 예매가 DB에 저장된다")
 	void reservesAnAvailableSeat() {
 		// Arrange
-		Instant now = Instant.parse("2026-09-16T01:00:00Z");
-		User user = new User(7L);
-		Concert concert = new Concert(11L, "아이유 콘서트", Instant.parse("2026-10-01T10:00:00Z"));
-		Seat seat = new Seat(42L, concert, 1);
-		ReservationRepository reservationRepository = createReservationRepository();
-		ReservationService sut = createReservationService(user, concert, seat, reservationRepository, now);
+		ReservationFixture fixture = prepareAvailableSeat();
 
 		// Act
-		Reservation result = sut.reserve(user.getId(), concert.getId(), seat.getId());
+		Reservation result = sut.reserve(fixture.userId(), fixture.concertId(), fixture.seatId());
+		entityManager.flush();
+		entityManager.clear();
 
 		// Assert
-		verify(reservationRepository).save(result);
-		verifyNoMoreInteractions(reservationRepository);
 		assertThat(result.getId()).isNotNull();
-		assertThat(result.isNew()).isTrue();
-		assertThat(result.getUser()).isSameAs(user);
-		assertThat(result.getConcert()).isSameAs(concert);
-		assertThat(result.getSeat()).isSameAs(seat);
-		assertThat(result.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
-		assertThat(result.getReservedAt()).isEqualTo(now);
-		assertThat(result.getCanceledAt()).isNull();
+		assertThat(reservationRepository.count()).isEqualTo(1L);
+		Reservation saved = reservationRepository.findById(result.getId()).orElseThrow();
+		assertThat(saved.getId()).isEqualTo(result.getId());
+		assertThat(saved.getUser().getId()).isEqualTo(fixture.userId());
+		assertThat(saved.getConcert().getId()).isEqualTo(fixture.concertId());
+		assertThat(saved.getSeat().getId()).isEqualTo(fixture.seatId());
+		assertThat(saved.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
+		assertThat(saved.getReservedAt()).isEqualTo(NOW);
+		assertThat(saved.getCanceledAt()).isNull();
 	}
 
-	private ReservationService createReservationService(User user, Concert concert, Seat seat,
-			ReservationRepository reservationRepository, Instant now) {
-		UserRepository userRepository = mock(UserRepository.class);
-		ConcertRepository concertRepository = mock(ConcertRepository.class);
-		SeatRepository seatRepository = mock(SeatRepository.class);
-		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-		when(concertRepository.findById(concert.getId())).thenReturn(Optional.of(concert));
-		when(seatRepository.findById(seat.getId())).thenReturn(Optional.of(seat));
-		Clock clock = Clock.fixed(now, ZoneId.of("Asia/Seoul"));
-
-		return new ReservationService(
-				userRepository, concertRepository, seatRepository, reservationRepository, clock);
+	private ReservationFixture prepareAvailableSeat() {
+		User user = userRepository.save(new User());
+		Concert concert = concertRepository.save(
+				new Concert("아이유 콘서트", NOW.plusSeconds(3600)));
+		Seat seat = seatRepository.save(new Seat(concert, 1));
+		entityManager.flush();
+		entityManager.clear();
+		return new ReservationFixture(user.getId(), concert.getId(), seat.getId());
 	}
 
-	private ReservationRepository createReservationRepository() {
-		ReservationRepository reservationRepository = mock(ReservationRepository.class);
-		when(reservationRepository.save(any(Reservation.class))).thenAnswer(returnsFirstArg());
-		return reservationRepository;
+	private record ReservationFixture(Long userId, Long concertId, Long seatId) {
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class FixedClockConfiguration {
+
+		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(NOW, ZoneOffset.UTC);
+		}
 	}
 }

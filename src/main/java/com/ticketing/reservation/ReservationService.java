@@ -3,9 +3,12 @@ package com.ticketing.reservation;
 import com.ticketing.concert.ConcertRepository;
 import com.ticketing.seat.SeatRepository;
 import com.ticketing.user.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 
+@Service
 public class ReservationService {
 	private final UserRepository userRepository;
 	private final ConcertRepository concertRepository;
@@ -22,6 +25,7 @@ public class ReservationService {
 		this.clock = clock;
 	}
 
+	@Transactional
 	public Reservation reserve(Long userId, Long concertId, Long seatId) {
 		var user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자가 존재하지 않습니다."));
